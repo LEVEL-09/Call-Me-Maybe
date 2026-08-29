@@ -1,0 +1,20 @@
+[project]
+name = "call-me-maybe"
+version = "0.1.0"
+description = "A Python package that uses an LLM and constrained decoding to translate natural language prompts into JSON function calls."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "llm-sdk",
+    "pydantic>=2.13.4",
+]
+
+[tool.uv.sources]
+llm-sdk = { path = "llm_sdk/dist/llm_sdk-0.1.0-py3-none-any.whl" }
+
+[dependency-groups]
+dev = [
+    "flake8>=7.3.0",
+    "mypy>=2.3.1",
+    "pytest>=9.1.1",
+]
