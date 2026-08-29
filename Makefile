@@ -1,3 +1,5 @@
+.PHONY: install run test debug clean lint lint-strict
+
 install:
 	uv sync
 
@@ -10,10 +12,14 @@ test:
 	uv run -m pytest
 
 debug:
-	uv run -m pdb src/main.py
+	uv run python -m pdb -m src --functions_definition data/input/functions_definition.json \
+		--input data/input/function_calling_tests.json \
+		--output data/output/function_calling_results.json
 
 clean:
-	rm -rf .pytest_cache __pycache__ .mypy_cache
+	find . -type d -name "__pycache__" -exec rm -rf {} +
+	rm -rf .mypy_cache
+	rm -rf .pytest_cache
 
 lint:
 	uv run -m flake8 . --exclude=.venv,llm_sdk
