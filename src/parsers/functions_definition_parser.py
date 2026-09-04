@@ -20,6 +20,16 @@ class FunctionDefinition(BaseModel):
     parameters: dict[str, DictType]
     returns: DictType
 
+    def __str__(self) -> str:
+        parameters = {name: type_hint["type"] for name, type_hint
+                      in self.parameters.items()}
+        return f"""
+           {self.name}
+                Description: {self.description}
+                parameters: {parameters}
+                return: {self.returns}
+        """
+
 
 def load_function_definitions(file_path: str) -> list[FunctionDefinition]:
     """Loads function definitions from a JSON file."""

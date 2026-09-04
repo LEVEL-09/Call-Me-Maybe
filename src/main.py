@@ -1,5 +1,8 @@
 from argparse import ArgumentParser, Namespace
 
+from .llm_response import LLMResponse, ResultDictType
+from .parsers import load_function_definitions, load_prompts
+from .parsers.error_handler import FileParsingErrorHandler
 
 DEFAULT_FUNCTIONS_DEFINITION = "data/input/functions_definition.json"
 DEFAULT_INPUT = "data/input/function_calling_tests.json"
@@ -27,4 +30,18 @@ def parse_args() -> Namespace:
 
 
 def main() -> None:
-    pass
+    args = parse_args()
+    result: list[ResultDictType] = []
+
+    with FileParsingErrorHandler():
+        prompts = load_prompts(args.input)
+        function_definitions = load_function_definitions(
+            args.functions_definition
+        )
+
+        llm_response = LLMResponse(result, function_definitions)
+        for item in prompts:
+            llm_response.generate_response(item.prompt)
+
+        for i in result:
+            print(i)
