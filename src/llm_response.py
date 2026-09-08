@@ -1,5 +1,6 @@
-import numpy as np
 from typing import Any, TypedDict
+
+import numpy as np
 
 from llm_sdk import Small_LLM_Model
 
@@ -37,12 +38,17 @@ class LLMResponse:
         self.llm = Small_LLM_Model()  # NOTE: inherent?
         self.result = result
         self.functions_definition = functions_definition
-        self.names_2d = [self.llm.encode(function.name).tolist()[0] for function in functions_definition]
+        self.names_2d = [
+            self.llm.encode(function.name).tolist()[0]
+            for function in functions_definition
+        ]
 
     def create_dict(self, prompt: str, name: str) -> ResultDictType:
         return {"prompt": prompt, "name": name, "parameters": None}
 
-    def functions_constrained_decoding(self, logits: list[float], index: int) -> list[float]:
+    def functions_constrained_decoding(
+        self, logits: list[float], index: int,
+    ) -> list[float]:
         new_logits = np.full_like(logits, -np.inf)
 
         i = 0
