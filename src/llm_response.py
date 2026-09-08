@@ -4,7 +4,7 @@ import numpy as np
 
 from llm_sdk import Small_LLM_Model
 
-from .parsers.functions_definition_parser import FunctionDefinition
+from .parsers.functions_definition_parser import FunctionDefinition, DictType
 
 SYSTEM_PROMPT = """
 You are a function choicer.
@@ -29,22 +29,23 @@ class ResultDictType(TypedDict):
     parameters: dict[str, Any]
 
 
+def create_dict(prompt: str, name: str, parameters: dict[str, DictType]) -> ResultDictType:
+        return {
+            "prompt": prompt,
+            "name": name,
+            "parameters": parameters
+        }
+
+
 class LLMResponse:
     def __init__(
         self,
         result: list[ResultDictType],
         functions_definition: list[FunctionDefinition],
     ) -> None:
-        self.llm = Small_LLM_Model()  # NOTE: inherent?
+        self.llm = Small_LLM_Model()
         self.result = result
         self.functions_definition = functions_definition
-        self.names_2d = [
-            self.llm.encode(function.name).tolist()[0]
-            for function in functions_definition
-        ]
-
-    def create_dict(self, prompt: str, name: str) -> ResultDictType:
-        return {"prompt": prompt, "name": name, "parameters": None}
 
     def functions_constrained_decoding(
         self, logits: list[float], index: int,
@@ -64,6 +65,27 @@ class LLMResponse:
             i += 1
         return new_logits
 
+    def parameter_constrained_decoding(
+            self, logits: list[float], parameter_type: str
+    ) -> list[float]:
+        new_logits = np.full_like(logits, -np.inf)
+
+        if parameter_type == "number":
+            allowed = self.llm.encode(".0123456789").tolist()[0]
+            allowed.append(1)
+        elif parameter_type == "integer":
+            allowed = self.llm.encode("0123456789").tolist()[0]
+            allowed.append(1)
+        elif parameter_type == "boolean":
+            allowed = [1866, 3849]
+        else:
+            return logits
+
+        for i in range(len(allowed)):
+                new_logits[allowed[i]] = logits[allowed[i]]
+
+        return new_logits
+
     def create_available_function(self) -> str:
         functions_prompt = ""
         for function_definition in self.functions_definition:
@@ -76,6 +98,10 @@ class LLMResponse:
 
     def generate_response(self, prompt: str) -> None:
         function_name = ""
+        self.names_2d = [
+            self.llm.encode(function.name).tolist()[0]
+            for function in self.functions_definition
+        ]
         text = SYSTEM_PROMPT.format(
             PROMPT=prompt, FUNCTIONS=self.create_available_function()
         )
@@ -90,4 +116,44 @@ class LLMResponse:
             input_ids.append(next_token)
             index += 1
 
-        self.result.append(self.create_dict(prompt, function_name))
+        parameters = {}
+        match_function = next(function for function in self.functions_definition if function.name == function_name)
+        text = f"""
+            Extract the parameter value from the user prompt.
+
+            User prompt:
+            {prompt}
+
+            Function: {str(match_function)}
+
+            Answer:"""
+        for k, v in match_function.parameters.items():
+            text += f" \"{k}\": \""
+            input_ids = self.llm.encode(text).tolist()[0]
+            value = ""
+            max_token = 0
+            while max_token < len(prompt):
+                logits = self.llm.get_logits_from_input_ids(input_ids)
+                logits = self.parameter_constrained_decoding(logits, v["type"])
+                next_token = np.argmax(logits)
+                if (next_token == 1):
+                    break
+                value += self.llm.decode(next_token)
+                input_ids.append(next_token)
+                max_token += 1
+
+            if max_token >= len(prompt):
+                value += "\""
+            text += value
+
+            if v["type"] == "number":
+                parameters[k] = float(value)
+            elif v["type"] == "integer":
+                parameters[k] = int(value)
+            elif v["type"] == "boolean":
+                parameters[k] = bool(value)
+            else:
+                parameters[k] = str(value)
+        print(parameters)
+
+        # self.result.append(create_dict(prompt, function_name))

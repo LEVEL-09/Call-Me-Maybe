@@ -1,5 +1,5 @@
 import json
-from typing import TypedDict
+from typing import TypedDict, Literal
 
 from pydantic import BaseModel, TypeAdapter, ValidationError
 from pydantic_core import PydanticCustomError
@@ -8,7 +8,7 @@ from pydantic_core import PydanticCustomError
 class DictType(TypedDict):
     """Represents a dictionary type with a type field."""
 
-    type: str
+    type: Literal["number", "string", "integer", "boolean"]
 
 
 class FunctionDefinition(BaseModel):
