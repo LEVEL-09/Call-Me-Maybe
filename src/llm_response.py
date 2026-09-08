@@ -37,17 +37,24 @@ class LLMResponse:
         self.llm = Small_LLM_Model()  # NOTE: inherent?
         self.result = result
         self.functions_definition = functions_definition
+        self.names_2d = [self.llm.encode(function.name).tolist()[0] for function in functions_definition]
 
     def create_dict(self, prompt: str, name: str) -> ResultDictType:
         return {"prompt": prompt, "name": name, "parameters": None}
 
     def functions_constrained_decoding(self, logits: list[float], index: int) -> list[float]:
-        names_2d = [self.llm.encode(function.name).tolist()[0] for function in self.functions_definition]
         new_logits = np.full_like(logits, -np.inf)
 
         i = 0
-        while i < len(names_2d):
-            new_logits[names_2d[i][index]] = logits[names_2d[i][index]]
+        while i < len(self.names_2d):
+            new_logits[self.names_2d[i][index]] = logits[self.names_2d[i][index]]
+            i += 1
+
+        i = 0
+        while i < len(self.names_2d):
+            if self.names_2d[i][index] != np.argmax(new_logits):
+                del self.names_2d[i]
+                continue
             i += 1
         return new_logits
 
@@ -63,10 +70,9 @@ class LLMResponse:
 
     def generate_response(self, prompt: str) -> None:
         function_name = ""
-        # text = SYSTEM_PROMPT.format(
-        #     PROMPT=prompt, FUNCTIONS=self.create_available_function()
-        # )
-        text = "XX_addnumber"
+        text = SYSTEM_PROMPT.format(
+            PROMPT=prompt, FUNCTIONS=self.create_available_function()
+        )
 
         input_ids: list[int] = self.llm.encode(text).tolist()[0]
         index = 0
@@ -75,7 +81,6 @@ class LLMResponse:
             logits = self.functions_constrained_decoding(logits, index)
             next_token = np.argmax(logits)
             function_name += self.llm.decode(next_token)
-            print(function_name)
             input_ids.append(next_token)
             index += 1
 
