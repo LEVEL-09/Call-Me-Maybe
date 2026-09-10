@@ -126,9 +126,12 @@ class LLMResponse:
         )
 
         text = f"""
+        <think>
+
+        </think>
         Extract the parameters required to call the following\
-        function from the user's request.
-        please regex is easy
+        function from the user request.
+
         Function:
         {match_function!s}
 
