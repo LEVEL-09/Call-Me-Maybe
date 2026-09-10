@@ -3,7 +3,7 @@ import sys
 from types import TracebackType
 from typing import Self
 
-from pydantic import ValidationError
+from pydantic_core import PydanticCustomError
 
 
 class FileParsingErrorHandler:
@@ -11,7 +11,7 @@ class FileParsingErrorHandler:
     or ValidationError."""
 
     def __init__(self) -> None:
-        self.exception = (OSError, json.JSONDecodeError, ValidationError)
+        self.exception = (OSError, json.JSONDecodeError, PydanticCustomError)
 
     def __enter__(self) -> Self:
         return self

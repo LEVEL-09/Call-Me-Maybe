@@ -4,7 +4,7 @@ import numpy as np
 
 from llm_sdk import Small_LLM_Model
 
-from .parsers.functions_definition_parser import FunctionDefinition, DictType
+from .parsers.functions_definition_parser import DictType, FunctionDefinition
 
 SYSTEM_PROMPT = """
 You are a function choicer.
@@ -29,12 +29,14 @@ class ResultDictType(TypedDict):
     parameters: dict[str, Any]
 
 
-def create_dict(prompt: str, name: str, parameters: dict[str, DictType]) -> ResultDictType:
-        return {
-            "prompt": prompt,
-            "name": name,
-            "parameters": parameters
-        }
+def create_dict(
+    prompt: str, name: str, parameters: dict[str, DictType],
+) -> ResultDictType:
+    return {
+        "prompt": prompt,
+        "name": name,
+        "parameters": parameters
+    }
 
 
 class LLMResponse:
@@ -54,7 +56,8 @@ class LLMResponse:
 
         i = 0
         while i < len(self.names_2d):
-            new_logits[self.names_2d[i][index]] = logits[self.names_2d[i][index]]
+            token_id = self.names_2d[i][index]
+            new_logits[token_id] = logits[token_id]
             i += 1
 
         i = 0
@@ -82,7 +85,7 @@ class LLMResponse:
             return logits
 
         for i in range(len(allowed)):
-                new_logits[allowed[i]] = logits[allowed[i]]
+            new_logits[allowed[i]] = logits[allowed[i]]
 
         return new_logits
 
@@ -117,16 +120,22 @@ class LLMResponse:
             index += 1
 
         parameters = {}
-        match_function = next(function for function in self.functions_definition if function.name == function_name)
+        match_function = next(
+            function for function in self.functions_definition
+            if function.name == function_name
+        )
+
         text = f"""
-            Extract the parameter value from the user prompt.
+        Extract the parameters required to call the following\
+        function from the user's request.
+        please regex is easy
+        Function:
+        {match_function!s}
 
-            User prompt:
-            {prompt}
+        User prompt:
+        {prompt}
 
-            Function: {str(match_function)}
-
-            Answer:"""
+        Answer is:"""
         for k, v in match_function.parameters.items():
             text += f" \"{k}\": \""
             input_ids = self.llm.encode(text).tolist()[0]
@@ -136,14 +145,12 @@ class LLMResponse:
                 logits = self.llm.get_logits_from_input_ids(input_ids)
                 logits = self.parameter_constrained_decoding(logits, v["type"])
                 next_token = np.argmax(logits)
-                if (next_token == 1):
+                if "\"" in self.llm.decode(next_token):
                     break
                 value += self.llm.decode(next_token)
                 input_ids.append(next_token)
                 max_token += 1
 
-            if max_token >= len(prompt):
-                value += "\""
             text += value
 
             if v["type"] == "number":
@@ -154,6 +161,5 @@ class LLMResponse:
                 parameters[k] = bool(value)
             else:
                 parameters[k] = str(value)
-        print(parameters)
 
-        # self.result.append(create_dict(prompt, function_name))
+        self.result.append(create_dict(prompt, function_name, parameters))

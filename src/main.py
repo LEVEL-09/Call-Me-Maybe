@@ -1,3 +1,5 @@
+import json
+import os
 from argparse import ArgumentParser, Namespace
 
 from .llm_response import LLMResponse, ResultDictType
@@ -43,5 +45,6 @@ def main() -> None:
         for item in prompts:
             llm_response.generate_response(item.prompt)
 
-        for i in result:
-            print(i)
+        os.makedirs(os.path.dirname(args.output), exist_ok=True)
+        with open(args.output, "w") as f:
+            json.dump(result, f, indent=4)

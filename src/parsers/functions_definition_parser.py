@@ -1,5 +1,5 @@
 import json
-from typing import TypedDict, Literal
+from typing import Literal, TypedDict
 
 from pydantic import BaseModel, TypeAdapter, ValidationError
 from pydantic_core import PydanticCustomError
@@ -24,7 +24,7 @@ class FunctionDefinition(BaseModel):
         parameters = {name: type_hint["type"] for name, type_hint
                       in self.parameters.items()}
         return f"""
-           {self.name}
+            {self.name}
                 Description: {self.description}
                 parameters: {parameters}
                 return: {self.returns}
