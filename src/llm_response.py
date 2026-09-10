@@ -2,9 +2,9 @@ from typing import Any, TypedDict
 
 import numpy as np
 
-from llm_sdk import Small_LLM_Model
+from llm_sdk import Small_LLM_Model  # type: ignore
 
-from .parsers.functions_definition_parser import DictType, FunctionDefinition
+from .parsers.functions_definition_parser import FunctionDefinition
 
 SYSTEM_PROMPT = """
 You are a function choicer.
@@ -30,8 +30,18 @@ class ResultDictType(TypedDict):
 
 
 def create_dict(
-    prompt: str, name: str, parameters: dict[str, DictType],
+    prompt: str, name: str, parameters: dict[str, Any],
 ) -> ResultDictType:
+    """Create a result dictionary with prompt, function name, and parameters.
+
+    Args:
+        prompt: The user prompt.
+        name: The function name.
+        parameters: The function parameters.
+
+    Returns:
+        ResultDictType containing the prompt, name, and parameters.
+    """
     return {
         "prompt": prompt,
         "name": name,
@@ -40,11 +50,17 @@ def create_dict(
 
 
 class LLMResponse:
+    """
+        Handles LLM response generation with constrained
+        decoding for function calling.
+    """
+
     def __init__(
         self,
         result: list[ResultDictType],
         functions_definition: list[FunctionDefinition],
     ) -> None:
+        """Initialize with result list and function definitions."""
         self.llm = Small_LLM_Model()
         self.result = result
         self.functions_definition = functions_definition
@@ -52,6 +68,10 @@ class LLMResponse:
     def functions_constrained_decoding(
         self, logits: list[float], index: int,
     ) -> list[float]:
+        """
+            Apply constrained decoding to restrict logits to
+            valid function name tokens.
+        """
         new_logits = np.full_like(logits, -np.inf)
 
         i = 0
@@ -66,11 +86,15 @@ class LLMResponse:
                 del self.names_2d[i]
                 continue
             i += 1
-        return new_logits
+        return list(new_logits)
 
     def parameter_constrained_decoding(
             self, logits: list[float], parameter_type: str
     ) -> list[float]:
+        """
+            Apply constrained decoding based on parameter type
+            (number, integer, boolean, string).
+        """
         new_logits = np.full_like(logits, -np.inf)
 
         if parameter_type == "number":
@@ -87,19 +111,37 @@ class LLMResponse:
         for i in range(len(allowed)):
             new_logits[allowed[i]] = logits[allowed[i]]
 
-        return new_logits
+        return list(new_logits)
 
     def create_available_function(self) -> str:
+        """Create a formatted string of all available function definitions.
+
+        Returns:
+            Formatted string of function definitions.
+        """
         functions_prompt = ""
         for function_definition in self.functions_definition:
             functions_prompt += "".join(str(function_definition))
         return functions_prompt
 
     def _finish_tokens(self, text: str) -> bool:
+        """Check if text is a complete function name from available functions.
+
+        Args:
+            text: The text to check.
+
+        Returns:
+            True if text is not a complete function name, False otherwise.
+        """
         names = [function.name for function in self.functions_definition]
         return text not in names
 
     def generate_response(self, prompt: str) -> None:
+        """Generate LLM response with function name and parameters.
+
+        Args:
+            prompt: The user prompt to generate response for.
+        """
         function_name = ""
         self.names_2d = [
             self.llm.encode(function.name).tolist()[0]
@@ -114,12 +156,12 @@ class LLMResponse:
         while self._finish_tokens(function_name):
             logits = self.llm.get_logits_from_input_ids(input_ids)
             logits = self.functions_constrained_decoding(logits, index)
-            next_token = np.argmax(logits)
+            next_token = int(np.argmax(logits))
             function_name += self.llm.decode(next_token)
             input_ids.append(next_token)
             index += 1
 
-        parameters = {}
+        parameters: dict[str, Any] = {}
         match_function = next(
             function for function in self.functions_definition
             if function.name == function_name
@@ -147,7 +189,7 @@ class LLMResponse:
             while max_token < len(prompt):
                 logits = self.llm.get_logits_from_input_ids(input_ids)
                 logits = self.parameter_constrained_decoding(logits, v["type"])
-                next_token = np.argmax(logits)
+                next_token = int(np.argmax(logits))
                 if "\"" in self.llm.decode(next_token):
                     break
                 value += self.llm.decode(next_token)

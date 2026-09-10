@@ -12,6 +12,7 @@ DEFAULT_OUTPUT = "data/output/function_calling_results.json"
 
 
 def parse_args() -> Namespace:
+    """Parse command line arguments for file paths."""
     parser = ArgumentParser()
     parser.add_argument(
         "--functions_definition",
@@ -32,6 +33,10 @@ def parse_args() -> Namespace:
 
 
 def main() -> None:
+    """Load function definitions and prompts, generate LLM responses.
+
+    Generates LLM responses and saves results to output file.
+    """
     args = parse_args()
     result: list[ResultDictType] = []
 
@@ -41,10 +46,10 @@ def main() -> None:
             args.functions_definition
         )
 
-        llm_response = LLMResponse(result, function_definitions)
-        for item in prompts:
-            llm_response.generate_response(item.prompt)
+    llm_response = LLMResponse(result, function_definitions)
+    for item in prompts:
+        llm_response.generate_response(item.prompt)
 
-        os.makedirs(os.path.dirname(args.output), exist_ok=True)
-        with open(args.output, "w") as f:
-            json.dump(result, f, indent=4)
+    os.makedirs(os.path.dirname(args.output), exist_ok=True)
+    with open(args.output, "w") as f:
+        json.dump(result, f, indent=4)
