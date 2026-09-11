@@ -70,7 +70,18 @@ def load_function_definitions(file_path: str) -> list[FunctionDefinition]:
 
         adapter = TypeAdapter(list[FunctionDefinition])
 
-        return adapter.validate_python(data)
+        definitions = adapter.validate_python(data)
+
+        names = [definition.name for definition in definitions]
+        duplicates = {name for name in names if names.count(name) > 1}
+        if duplicates:
+            raise PydanticCustomError(
+                "duplicate_function_name_error",
+                "Duplicate function names found: {duplicates}",
+                {"duplicates": list(duplicates)},
+            )
+
+        return definitions
 
     except OSError as e:
         raise OSError(f"Error loading file {file_path}:\n\t{e.strerror}")
