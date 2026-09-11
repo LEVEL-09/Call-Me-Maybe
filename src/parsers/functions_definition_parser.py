@@ -1,14 +1,20 @@
 import json
-from typing import Literal, TypedDict
+from typing import Annotated, Literal, TypedDict
 
 from pydantic import (
     BaseModel,
     ConfigDict,
+    StringConstraints,
     TypeAdapter,
     ValidationError,
     field_validator,
 )
 from pydantic_core import PydanticCustomError
+
+NonEmptyStr = Annotated[
+    str,
+    StringConstraints(min_length=1, strip_whitespace=True),
+]
 
 
 class DictType(TypedDict):
@@ -23,9 +29,9 @@ class FunctionDefinition(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    name: str
-    description: str
-    parameters: dict[str, DictType]
+    name: NonEmptyStr
+    description: NonEmptyStr
+    parameters: dict[NonEmptyStr, DictType]
     returns: DictType
 
     @field_validator("name")
@@ -91,8 +97,8 @@ def load_function_definitions(file_path: str) -> list[FunctionDefinition]:
             msg=f"Error Invalid JSON: {error}", doc=error.doc, pos=error.pos
         )
 
-    except ValidationError as e:
-        first_error_msg = e.errors()[0]["msg"]
+    except ValidationError:
         raise PydanticCustomError(
-            "validation_error", f"Invalid data: {first_error_msg}"
+            "validation_error",
+            "Invalid data: The data does not follow the expected format.",
         )
