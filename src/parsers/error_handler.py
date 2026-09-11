@@ -11,7 +11,12 @@ class FileParsingErrorHandler:
     or ValidationError."""
 
     def __init__(self) -> None:
-        self.exception = (OSError, json.JSONDecodeError, PydanticCustomError)
+        self.exception = (
+            OSError,
+            json.JSONDecodeError,
+            PydanticCustomError,
+            ValueError,
+        )
 
     def __enter__(self) -> Self:
         return self

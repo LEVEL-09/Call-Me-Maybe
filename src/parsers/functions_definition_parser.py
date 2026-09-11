@@ -1,7 +1,13 @@
 import json
 from typing import Literal, TypedDict
 
-from pydantic import BaseModel, TypeAdapter, ValidationError
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    TypeAdapter,
+    ValidationError,
+    field_validator,
+)
 from pydantic_core import PydanticCustomError
 
 
@@ -15,14 +21,27 @@ class FunctionDefinition(BaseModel):
     """Represents a function definition with its name, description, parameters,
     and return type."""
 
+    model_config = ConfigDict(extra="forbid")
+
     name: str
     description: str
     parameters: dict[str, DictType]
     returns: DictType
 
+    @field_validator("name")
+    def validate_function_name(cls, name: str) -> str:
+        if not name.isidentifier():
+            raise PydanticCustomError(
+                "invalid_function_name",
+                "Function name must be a valid identifier",
+            )
+        return name
+
     def __str__(self) -> str:
-        parameters = {name: type_hint["type"] for name, type_hint
-                      in self.parameters.items()}
+        parameters = {
+            name: type_hint["type"] for name, type_hint
+            in self.parameters.items()
+        }
         return f"""
             {self.name}
                 Description: {self.description}
@@ -31,12 +50,23 @@ class FunctionDefinition(BaseModel):
         """
 
 
+def parse_function_definition(
+    data: list[tuple[str, None | str]],
+) -> dict[str, None | str]:
+    keys = [key for key, _ in data]
+    duplicates = {key for key in keys if keys.count(key) > 1}
+    if duplicates:
+        raise ValueError(f"Duplicate keys found: {duplicates}")
+
+    return dict(data)
+
+
 def load_function_definitions(file_path: str) -> list[FunctionDefinition]:
     """Loads function definitions from a JSON file."""
 
     try:
         with open(file_path, "r") as f:
-            data = json.load(f)
+            data = json.load(f, object_pairs_hook=parse_function_definition)
 
         adapter = TypeAdapter(list[FunctionDefinition])
 
@@ -50,8 +80,8 @@ def load_function_definitions(file_path: str) -> list[FunctionDefinition]:
             msg=f"Error Invalid JSON: {error}", doc=error.doc, pos=error.pos
         )
 
-    except ValidationError:
+    except ValidationError as e:
+        first_error_msg = e.errors()[0]["msg"]
         raise PydanticCustomError(
-            "validation_error",
-            "Invalid data: The data does not follow the expected format."
+            "validation_error", f"Invalid data: {first_error_msg}"
         )

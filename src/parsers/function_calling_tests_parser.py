@@ -1,13 +1,15 @@
 import json
 
-from pydantic import BaseModel, TypeAdapter, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter, ValidationError
 from pydantic_core import PydanticCustomError
 
 
 class PromptItem(BaseModel):
     """Represents one function-calling prompt."""
 
-    prompt: str
+    model_config = ConfigDict(extra="forbid")
+
+    prompt: str = Field(min_length=1)
 
 
 def load_prompts(file_path: str) -> list[PromptItem]:
@@ -32,5 +34,5 @@ def load_prompts(file_path: str) -> list[PromptItem]:
     except ValidationError:
         raise PydanticCustomError(
             "validation_error",
-            "Invalid data: The data does not follow the expected format."
+            "Invalid data: The data does not follow the expected format.",
         )
